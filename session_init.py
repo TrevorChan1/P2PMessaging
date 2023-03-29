@@ -2,28 +2,14 @@ import socket
 import threading
 import queue
 
-class target(socket.socket):
-    def __init__(self, host, port):
-        self = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.bind(host, port)
-
-users = [
-    {"Trevdawg" : [socket.gethostbyname(socket.gethostname()), 6969]},
-    {"Testopher" : [socket.gethostbyname(socket.gethostname()), 56784]}
-]
+users = {"Trevdawg" : [socket.gethostbyname(socket.gethostname()), 6969],
+         "Testopher" : [socket.gethostbyname(socket.gethostname()), 56784]}
 
 # Function that sends a message given a target and message
 def sendMessage(host, port, message):
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     s.sendto(message, (host, port))
-    reply = s.recv(1024)
-    print(reply)
-
-# Class for people currently sending messages
-# def sender():
-
-
-
+    return 0
 
 # Function that will constantly wait for messages then print them
 def receiveMessage(host, port):
@@ -65,7 +51,7 @@ def p2pMessager(name, port):
     users[name] = [host, port]
 
     # Create a thread for the receiver with the host and port as arguments
-    threading.Thread(receiveMessage, (host, port))
+    threading.Thread(target=receiveMessage, args=(host, port))
 
     messager_open = True
     dest_socket = None
@@ -98,6 +84,6 @@ def p2pMessager(name, port):
                 dest_socket = None
             # Otherwise, create a thread sending the message
             else:
-                threading.Thread(sendMessage, (dest_socket[0], dest_socket[1], message))
+                threading.Thread(target=sendMessage, args=(dest_socket[0], dest_socket[1], message))
 
-    
+p2pMessager("Steve", 1050)
