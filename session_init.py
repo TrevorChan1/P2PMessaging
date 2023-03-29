@@ -11,30 +11,48 @@ def sendMessage(host, port, message):
     s.sendto(message, (host, port))
     return 0
 
-# Function that will constantly wait for messages then print them
+# Top level message receiver that waits for connection requests and generates multiple connections
 def receiveMessage(host, port):
 
     # Create a socket and bind it to the host / port of the input
     r = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     r.bind(host,port)
 
-    # Accept connections
-    ip, addr = r.accept()
+    while (True):
+        # Accept connections
+        ip, addr = r.accept()
 
-    # When it gets a connection, check if the ip and address are a known user
-    user = [n for n, values in users.items() if values == [ip,addr]]
-    if (user):
-        name = user
-    else:
-        name = "UNKNOWN"
-
-    # While receiving messages, print out the messages
-    while True:
-        message = r.recv(1024)
-        print(name + ":", message)
+        # When it gets a connection, check if the ip and address are a known user
+        user = [n for n, values in users.items() if values == [ip,addr]]
+        if (user):
+            name = user
+        else:
+            name = "UNKNOWN"
+        
+        # Create a new thread that will listen for traffic each time a new request is sent
+        threading.Thread(target=receiveConnection, args=(name, r))
     
-    # Close the connection if possible
     r.close()
+        
+        
+# Helper function that handles each individual connection to receive and print messages
+def receiveConnection(name, sock):
+    # Run until the sender asks to exit the connection
+    connectionOn = True
+    while (connectionOn):
+
+         # While receiving messages, print out the messages
+        message = sock.recv(1024)
+        if (message == "exit"):
+            connectionOn = False
+        else:
+            print(name + ":", message)
+    
+    # Terminate the connection by closing the socket
+    sock.close()
+
+        
+
 
 
     
@@ -44,6 +62,8 @@ def p2pMessager(name, port):
     # Check if the user exists on the P2P service already
     if (name in users):
         print("ERROR: User already exists")
+        return -1
+    
 
     # Add new user to users (to be changed into database or server implementation)
     hostname = socket.gethostname()
@@ -86,4 +106,4 @@ def p2pMessager(name, port):
             else:
                 threading.Thread(target=sendMessage, args=(dest_socket[0], dest_socket[1], message))
 
-p2pMessager("Steve", 1050)
+# p2pMessager("Trevdawg", 1050)
