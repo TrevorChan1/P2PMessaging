@@ -1,14 +1,24 @@
 import socket
 import threading
 import queue
+import sqlite3
+import datetime
 
 users = {"Trevdawg" : [socket.gethostbyname(socket.gethostname()), 6969],
          "Testopher" : [socket.gethostbyname(socket.gethostname()), 56784]}
 
+db = "p2p_database.db"
+
 # Function that sends a message given a target and message
 def sendMessage(host, port, message):
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    s.sendto(message, (host, port))
+    try:
+        s.sendto(message, (host, port))
+    except:
+        # If message fails to send, add it to the database for the user to receive on login
+        con = sqlite3.connect(db)
+        time = datetime.datetime.now()
+        con.execute("INSERT INTO unread_messages (msg, ip, port, time_stamp) VALUES (?, ?, ?, ?)", message, host, port, str(time))
     return 0
 
 # Top level message receiver that waits for connection requests and generates multiple connections
@@ -21,13 +31,18 @@ def receiveMessage(host, port):
     while (True):
         # Accept connections
         ip, addr = r.accept()
+        con = sqlite3.connect(db)
+        cur = con.cursor()
 
         # When it gets a connection, check if the ip and address are a known user
-        user = [n for n, values in users.items() if values == [ip,addr]]
-        if (user):
-            name = user
-        else:
+        cur.execute("SELECT name FROM user WHERE ip=" + host + " AND port=" + port)
+        user = cur.fetchall()
+
+        # If user not in database set them as UNKNOWN (still allow messages)
+        if len(user) == 0:
             name = "UNKNOWN"
+        else:
+            name = user[0]
         
         # Create a new thread that will listen for traffic each time a new request is sent
         threading.Thread(target=receiveConnection, args=(name, r))
@@ -68,7 +83,15 @@ def p2pMessager(name, port):
     # Add new user to users (to be changed into database or server implementation)
     hostname = socket.gethostname()
     host = socket.gethostbyname(hostname)
-    users[name] = [host, port]
+
+    con = sqlite3.connect(db)
+    cur = con.cusor()
+    cur.execute("SELECT name FROM user WHERE ip=" + host + " AND port=" + port)
+    user = cur.fetchall()
+
+    # If user doesn't exist, create a new user in database
+    if (len(user) == 0):
+        con.execute("INSERT INTO users (name, ip, port) VALUES (?, ?, ?, ?)", name, host, port)
 
     # Create a thread for the receiver with the host and port as arguments
     threading.Thread(target=receiveMessage, args=(host, port))
@@ -89,8 +112,13 @@ def p2pMessager(name, port):
                 break
             
             # Otherwise, check if destination is a known user
-            if (dest in users):
-                dest_socket = users[dest]
+            con = sqlite3.connect(db)
+            cur = con.cusor()
+            cur.execute("SELECT ip, port FROM user WHERE name=" + name)
+            user = cur.fetchall()
+
+            if (len(user) == 2):
+                dest_socket = [user[0], user[1]]
             else:
                 print("User not found")
                 dest_socket = None
