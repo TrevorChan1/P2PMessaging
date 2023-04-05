@@ -92,6 +92,12 @@ def p2pMessager(name, port):
     # If user doesn't exist, create a new user in database
     if (len(user) == 0):
         con.execute("INSERT INTO users (name, ip, port) VALUES (?, ?, ?, ?)", name, host, port)
+    else:
+        cur.execute("SELECT msg FROM unread_messages WHERE ip=" + host + " AND port=" + port + " ORDER BY time_stamp")
+        msgs = cur.fetchall()
+        if (len(msgs) > 0):
+            for msg in msgs:
+                print(msg)
 
     # Create a thread for the receiver with the host and port as arguments
     threading.Thread(target=receiveMessage, args=(host, port))
